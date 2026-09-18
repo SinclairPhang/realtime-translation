@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f3f6fa" />
+    <meta name="description" content="Duo Translate mobile realtime interpretation prototype" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%231d6bff'/%3E%3Cpath d='M18 20h28v18H31l-7 7v-7h-6z' fill='white'/%3E%3Cpath d='M25 27h14M25 33h9' stroke='%231d6bff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E" />
+    <title>Duo Translate</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f6fa;
+        --surface: #ffffff;
+        --surface-strong: #ffffff;
+        --navy: #073b72;
+        --ink: #10243c;
+        --muted: #6f8094;
+        --line: #dfe7f0;
+        --blue: #0874c9;
+        --blue-soft: #eaf3fb;
+        --green: #168665;
+        --green-soft: #e6f5f0;
+        --amber: #a76118;
+        --amber-soft: #fff0dc;
+        --red: #df2935;
+        --shadow: 0 10px 30px rgba(20, 48, 82, .09);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+      }
+
+      button, select { font: inherit; }
+      button { cursor: pointer; }
+
+      .app-shell {
+        width: min(100%, 560px);
+        min-height: 100dvh;
+        margin: 0 auto;
+        padding: 0 16px max(118px, calc(env(safe-area-inset-bottom) + 30px));
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: 0 -16px;
+        padding: calc(env(safe-area-inset-top) + 12px) 18px 12px;
+        background: rgba(243, 246, 250, .92);
+        border-bottom: 1px solid rgba(223, 231, 240, .82);
+        -webkit-backdrop-filter: blur(18px);
+        backdrop-filter: blur(18px);
+      }
+
+      .brand { display: flex; align-items: center; gap: 10px; }
+      .brand-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: var(--navy);
+        box-shadow: none;
+      }
+      .brand-mark svg { width: 22px; height: 22px; }
+      .brand-name { font-size: 18px; font-weight: 800; letter-spacing: .01em; }
+      .brand-caption { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; margin-top: 3px; }
+
+      .icon-button {
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: #e4edf6;
+        color: var(--navy);
+      }
+      .icon-button:hover { color: var(--ink); background: var(--surface-strong); }
+      .icon-button svg { width: 19px; height: 19px; }
+
+      .language-card {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1fr 42px 1fr;
+        align-items: center;
+        gap: 8px;
+        padding: 42px 12px 12px;
+        border: 1px solid rgba(216, 225, 239, 0.9);
+        background: linear-gradient(145deg, var(--navy), var(--blue));
+        border-radius: 21px;
+        box-shadow: 0 16px 35px rgba(7, 59, 114, .22);
+      }
+      .language-card::after { content: ""; position: absolute; width: 170px; height: 170px; right: -56px; top: -62px; border: 35px solid rgba(255,255,255,.08); border-radius: 50%; pointer-events: none; }
+      .language-card::before { content: "LIVE LANGUAGE PAIR"; position: absolute; z-index: 1; top: 15px; left: 20px; color: rgba(255,255,255,.68); font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+      .language-settings { position: absolute; z-index: 2; top: 10px; right: 14px; padding: 5px 8px; border: 0; border-radius: 8px; background: rgba(255,255,255,.12); color: rgba(255,255,255,.88); font-size: 12px; font-weight: 750; }
+      .language-settings:hover { background: rgba(255,255,255,.2); }
+      .language-field { position: relative; z-index: 1; min-width: 0; }
+      .language-label { display: block; margin: 0 0 5px 4px; font-size: 12px; color: rgba(255,255,255,.72); }
+      .language-select {
+        width: 100%;
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: #f9fbfd url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236f8094' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+        color: var(--ink);
+        padding: 11px 34px 11px 12px;
+        outline: none;
+      }
+      .language-select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+      .swap-button {
+        position: relative;
+        z-index: 1;
+        width: 40px;
+        height: 40px;
+        margin-top: 17px;
+        border-radius: 50%;
+        border: 1px solid #d4e0eb;
+        color: var(--navy);
+        background: #edf3f9;
+        display: grid;
+        place-items: center;
+        transition: transform 180ms ease, background 180ms ease;
+      }
+      .swap-button:hover { transform: rotate(180deg); background: #e4edf6; }
+      .swap-button svg { width: 18px; height: 18px; }
+
+      .status-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 2px 12px;
+      }
+      .section-kicker { margin-bottom: 4px; color: #8b9aab; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #aeb9ca; }
+      .status-pill[data-state="listening"] .status-dot { background: var(--green); box-shadow: 0 0 0 5px rgba(21, 150, 107, 0.12); }
+      .status-pill[data-state="playing"] .status-dot { background: var(--blue); box-shadow: 0 0 0 5px rgba(29, 107, 255, 0.12); }
+      .status-pill[data-state="processing"] .status-dot { background: var(--amber); box-shadow: 0 0 0 5px rgba(194, 115, 15, 0.12); }
+      .mode-tag {
+        color: var(--navy);
+        background: #e9f1f8;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 650;
+      }
+      .demo-trigger { border: 0; font-weight: 700; }
+      .demo-trigger:hover { background: #ffe8bd; }
+
+      .conversation {
+        flex: 1;
+        min-height: 310px;
+        max-height: min(58dvh, 560px);
+        overflow: auto;
+        padding: 5px 2px 14px;
+        scrollbar-width: thin;
+      }
+      .conversation::-webkit-scrollbar { width: 5px; }
+      .conversation::-webkit-scrollbar-thumb { background: #d1dbea; border-radius: 99px; }
+      .empty-state {
+        min-height: 300px;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted);
+        padding: 36px 30px;
+      }
+      .empty-orb {
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 14px;
+        border-radius: 24px;
+        display: grid;
+        place-items: center;
+        color: var(--blue);
+        background: var(--blue-soft);
+      }
+      .empty-orb svg { width: 30px; height: 30px; }
+      .empty-title { color: var(--ink); font-size: 17px; font-weight: 720; margin-bottom: 6px; }
+      .empty-copy { font-size: 14px; line-height: 1.6; }
+
+      .turn {
+        padding: 13px 15px 14px;
+        margin: 9px 0;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 17px;
+        box-shadow: 0 7px 20px rgba(20, 48, 82, .06);
+        animation: rise 260ms ease both;
+      }
+      .turn-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 9px; }
+      .turn-language { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+      .turn-time { color: #a0abbc; font-size: 12px; }
+      .turn-source { color: #64728a; font-size: 14px; line-height: 1.55; }
+      .turn-target { color: var(--ink); font-size: 17px; line-height: 1.45; font-weight: 700; margin-top: 4px; }
+      .turn[data-pending="true"] .turn-target { color: #97a4b6; }
+      @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+      .control-card {
+        position: relative;
+        z-index: 8;
+        display: grid;
+        justify-items: center;
+        gap: 12px;
+        padding: 18px 20px 16px;
+        border-radius: 21px;
+        border: 1px solid var(--line);
+        background: #fff;
+        box-shadow: var(--shadow);
+      }
+      .control-card[data-docked="true"] {
+        position: fixed;
+        z-index: 12;
+        left: 50%;
+        bottom: calc(86px + env(safe-area-inset-bottom));
+        width: min(calc(100% - 32px), 528px);
+        transform: translateX(-50%);
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 14px 32px rgba(20,48,82,.16);
+        -webkit-backdrop-filter: blur(18px);
+        backdrop-filter: blur(18px);
+      }
+      .listen-button {
+        position: relative;
+        width: 76px;
+        height: 76px;
+        border: 0;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: var(--blue);
+        box-shadow: 0 12px 26px rgba(8, 116, 201, .22);
+        transition: transform 160ms ease, background 160ms ease;
+      }
+      .listen-button:hover { transform: translateY(-2px); }
+      .listen-button[data-active="true"] { background: var(--red); box-shadow: 0 12px 26px rgba(223, 41, 53, .22); }
+      .listen-button[data-paused="true"] { background: var(--amber); box-shadow: 0 12px 26px rgba(194, 115, 15, 0.22); }
+      .listen-button[data-busy="true"] { background: #7b8aa4; box-shadow: none; }
+      .listen-button svg { width: 28px; height: 28px; }
+      .pulse-ring { position: absolute; inset: -9px; border: 1px solid rgba(29, 107, 255, 0.3); border-radius: 50%; opacity: 0; }
+      .listen-button[data-active="true"] .pulse-ring { animation: pulse 1.8s ease-out infinite; }
+      .listen-button .hold-progress { position: absolute; left: 50%; top: 50%; width: 108px; height: 108px; transform: translate(-50%, -50%) rotate(-90deg); overflow: visible; pointer-events: none; opacity: 0; transition: opacity 120ms ease; filter: drop-shadow(0 0 3px rgba(19, 32, 57, .45)); }
+      .hold-progress[data-visible="true"] { opacity: 1; }
+      .hold-progress .hold-track { fill: none; stroke: rgba(255, 255, 255, .28); stroke-width: 6; }
+      .hold-progress .hold-value { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 276.46; stroke-dashoffset: 276.46; }
+      @keyframes pulse { 0% { transform: scale(.9); opacity: .7; } 100% { transform: scale(1.18); opacity: 0; } }
+      .control-label { font-size: 14px; color: var(--muted); }
+      .control-helper { font-size: 12px; color: #9aa7b9; }
+
+      .summary-card {
+        margin: 0 2px 14px;
+        padding: 16px;
+        border: 1px solid #dce6f5;
+        border-radius: 20px;
+        background: #f8fbff;
+      }
+      .summary-card[hidden] { display: none; }
+      .summary-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+      .summary-title { font-size: 15px; font-weight: 760; }
+      .summary-time { color: var(--muted); font-size: 12px; }
+      .summary-section + .summary-section { margin-top: 12px; }
+      .summary-label { color: var(--blue); font-size: 12px; font-weight: 760; margin-bottom: 4px; }
+      .summary-text { color: var(--ink); font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+      .summary-list { margin: 0; padding-left: 18px; color: var(--ink); font-size: 14px; line-height: 1.6; }
+      .summary-actions { display: flex; gap: 8px; margin-top: 14px; }
+      .summary-action { flex: 1; border: 1px solid #cddcf5; border-radius: 11px; padding: 9px 10px; color: var(--blue); background: #fff; font-size: 13px; font-weight: 720; }
+
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: max(18px, env(safe-area-inset-bottom));
+        transform: translate(-50%, 18px);
+        z-index: 10;
+        max-width: calc(100vw - 34px);
+        padding: 11px 14px;
+        color: #fff;
+        background: rgba(19, 32, 57, 0.94);
+        border-radius: 12px;
+        font-size: 13px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+      .toast[data-visible="true"] { opacity: 1; transform: translate(-50%, 0); }
+
+      .sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(19, 32, 57, 0.24); opacity: 0; pointer-events: none; transition: opacity 180ms ease; }
+      .sheet-backdrop[data-open="true"] { opacity: 1; pointer-events: auto; }
+      .sheet {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: min(100%, 560px);
+        max-height: min(92dvh, 760px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        transform: translate(-50%, 100%);
+        padding: clamp(16px, 4vw, 24px) clamp(14px, 4vw, 24px) max(20px, env(safe-area-inset-bottom));
+        border-radius: 24px 24px 0 0;
+        background: var(--surface-strong);
+        transition: transform 220ms ease;
+      }
+      .sheet-backdrop[data-open="true"] .sheet { transform: translate(-50%, 0); }
+      .sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+      .sheet-title { font-weight: 760; font-size: 18px; }
+      .sheet-row { display: flex; align-items: center; justify-content: space-between; gap: clamp(12px, 4vw, 20px); min-width: 0; padding: 13px 0; border-top: 1px solid var(--line); }
+      .sheet-row:first-of-type { border-top: 0; }
+      .sheet-row-column { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; justify-items: stretch; flex: 1 1 100%; width: 100%; min-width: 0; gap: 10px; }
+      .sheet-row > div { min-width: 0; }
+      .sheet-row:not(.sheet-row-column) > div:first-child { flex: 1 1 auto; }
+      .sheet-row-column > .api-key-wrap,
+      .sheet-row-column > .range-wrap,
+      .sheet-row-column > .api-key-status { grid-column: 1 / -1; justify-self: stretch; width: 100% !important; max-width: none; min-width: 0; }
+      .sheet-row-label { font-size: 15px; }
+      .sheet-row-copy { color: var(--muted); font-size: 12px; margin-top: 3px; }
+      .api-key-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; justify-self: stretch; gap: 8px; width: 100% !important; max-width: none; min-width: 0; }
+      .api-key-input { min-width: 0; width: 100% !important; max-width: none; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; color: var(--ink); background: #fbfcfe; outline: none; }
+      .api-key-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+      .api-key-save { min-height: 44px; width: clamp(68px, 16vw, 84px); border: 0; border-radius: 12px; padding: 0 12px; color: var(--blue); background: var(--blue-soft); font-weight: 720; }
+      .api-key-status { color: var(--muted); font-size: 12px; }
+      .range-wrap { display: grid; gap: 7px; justify-self: stretch; width: 100% !important; max-width: none; min-width: 0; }
+      .range-line { display: flex; align-items: center; gap: clamp(8px, 3vw, 12px); justify-self: stretch; width: 100% !important; max-width: none; min-width: 0; }
+      .range-input { display: block; width: auto; min-width: 0; flex: 1 1 0; accent-color: var(--blue); }
+      .range-value { min-width: 54px; color: var(--blue); font-size: 13px; font-weight: 720; text-align: right; }
+      .range-hint { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
+      .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+      .sheet-action { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 10px; color: var(--blue); background: var(--blue-soft); font-size: 13px; font-weight: 720; }
+      .sheet-action:disabled { opacity: .55; cursor: wait; }
+      .switch { position: relative; width: 46px; height: 28px; flex: 0 0 auto; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch-track { position: absolute; inset: 0; border-radius: 99px; background: #cdd7e5; transition: background 160ms ease; }
+      .switch-track::after { content: ""; position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(19, 32, 57, .16); transition: transform 160ms ease; }
+      .switch input:checked + .switch-track { background: var(--blue); }
+      .switch input:checked + .switch-track::after { transform: translateX(18px); }
+      .sheet-button { width: 100%; min-height: 44px; margin-top: 18px; padding: 13px clamp(12px, 4vw, 18px); border: 0; border-radius: 14px; background: var(--blue-soft); color: var(--blue); font-weight: 720; }
+
+      @media (max-width: 380px) {
+        .sheet-row:not(.sheet-row-column) { align-items: flex-start; }
+        .api-key-wrap { display: grid; grid-template-columns: minmax(0, 1fr); }
+        .api-key-input { width: 100%; }
+        .api-key-save { width: 100%; }
+        .range-hint { font-size: 10px; }
+      }
+
+      .bottom-nav { position: fixed; z-index: 15; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); width: min(calc(100% - 32px), 528px); padding: 9px 13px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 26px; background: rgba(255,255,255,.94); box-shadow: 0 12px 30px rgba(20,48,82,.13); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+      .bottom-nav button { min-height: 54px; display: grid; justify-items: center; align-content: center; gap: 4px; border: 0; border-radius: 16px; background: transparent; color: #8b9aab; font-size: 11px; font-weight: 700; }
+      .bottom-nav button.active { color: var(--navy); background: #eef4f9; }
+      .bottom-nav svg { width: 22px; height: 22px; }
+
+      .records-page[hidden] { display: none; }
+      .records-hero { overflow: hidden; position: relative; padding: 21px 20px; border-radius: 21px; background: linear-gradient(145deg, var(--navy), var(--blue)); color: #fff; box-shadow: 0 14px 30px rgba(7,59,114,.2); }
+      .records-hero::after { content: ""; position: absolute; width: 110px; height: 110px; right: -28px; top: -40px; border: 25px solid rgba(255,255,255,.1); border-radius: 50%; }
+      .records-hero small, .record-detail-header small { opacity: .68; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+      .records-hero h2 { margin: 7px 0 5px; font-size: 23px; }
+      .records-hero p { margin: 0; opacity: .74; font-size: 12px; }
+      .records-summary { margin: 19px 3px 10px; display: flex; align-items: center; justify-content: space-between; }
+      .records-summary strong { font-size: 16px; }
+      .records-summary span { color: var(--muted); font-size: 11px; }
+      .record-list { display: grid; gap: 9px; }
+      .record-card { overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: #fff; box-shadow: 0 7px 20px rgba(20,48,82,.06); }
+      .record-card-main { width: 100%; padding: 14px 15px 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; background: transparent; color: inherit; text-align: left; }
+      .record-card-main strong, .record-card-main small { display: block; }
+      .record-card-main strong { color: var(--ink); font-size: 15px; }
+      .record-card-main small { margin-top: 5px; color: var(--muted); font-size: 11px; }
+      .record-card-arrow { color: #9aa8b8; font-size: 25px; }
+      .record-card-actions { padding: 0 12px 12px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+      .record-card-actions button, .record-detail-actions button { min-height: 36px; border: 1px solid #d4e0eb; border-radius: 10px; background: #f8fbfd; color: var(--navy); font-size: 12px; font-weight: 750; }
+      .record-empty { padding: 33px 18px; border: 1px dashed #cbd8e5; border-radius: 17px; color: var(--muted); text-align: center; font-size: 13px; }
+      .record-detail { margin-top: 12px; padding: 15px; border: 1px solid var(--line); border-radius: 21px; background: #fff; box-shadow: var(--shadow); }
+      .record-back { padding: 0; border: 0; background: transparent; color: var(--blue); font-size: 13px; font-weight: 750; }
+      .record-detail-header { margin-top: 15px; display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+      .record-detail-header h2 { margin: 6px 0 0; font-size: 21px; }
+      .record-detail-header > span { color: var(--muted); font-size: 11px; text-align: right; }
+      .record-detail-actions { margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+      .record-summary-view { margin-top: 15px; padding: 13px; border-radius: 14px; background: #f7fafc; }
+      .record-summary-view[hidden] { display: none; }
+      .record-summary-view .summary-section + .summary-section { margin-top: 10px; }
+      .record-transcript { margin-top: 15px; display: grid; gap: 9px; }
+      .record-transcript-turn { padding: 12px; border: 1px solid #e4ebf2; border-radius: 14px; background: #fbfdff; }
+      .record-transcript-turn small { color: var(--blue); font-size: 10px; font-weight: 800; }
+      .record-transcript-turn p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+      .record-transcript-turn p + p { color: var(--ink); font-size: 15px; font-weight: 700; }
+
+      @media (min-width: 700px) {
+        .app-shell { padding-top: 28px; }
+        .conversation { min-height: 420px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div>
+            <div class="brand-caption">REALTIME TRANSLATION</div>
+            <div class="brand-name">同声翻译</div>
+          </div>
+        </div>
+      </header>
+
+      <div id="translatePage">
+      <section class="language-card" aria-label="语言设置">
+        <button class="language-settings" id="settingsButton" type="button">设置</button>
+        <div class="language-field">
+          <label class="language-label" for="sourceLanguage">语言 1</label>
+          <select class="language-select" id="sourceLanguage">
+            <option value="zh" data-name="中文" data-voice="zh-CN">中文</option>
+            <option value="fr" data-name="Français" data-voice="fr-FR">Français</option>
+          </select>
+        </div>
+        <button class="swap-button" id="swapButton" aria-label="交换两种语言">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13"/><path d="m14 5 3 3-3 3"/><path d="M20 16H7"/><path d="m10 13-3 3 3 3"/></svg>
+        </button>
+        <div class="language-field">
+          <label class="language-label" for="targetLanguage">语言 2</label>
+          <select class="language-select" id="targetLanguage">
+            <option value="fr" data-name="Français" data-voice="fr-FR">Français</option>
+            <option value="zh" data-name="中文" data-voice="zh-CN">中文</option>
+          </select>
+        </div>
+      </section>
+
+      <div class="status-strip">
+        <div>
+          <div class="section-kicker">LIVE INTERPRETATION</div>
+          <div class="status-pill" id="statusPill" data-state="idle">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="statusText">准备开始</span>
+          </div>
+        </div>
+        <div class="mode-tag">Realtime · 半双工</div>
+      </div>
+
+      <section class="conversation" id="conversation" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <div>
+            <div class="empty-orb" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7"/></svg>
+            </div>
+            <div class="empty-title">准备好开始对话</div>
+            <div class="empty-copy">点击下方按钮，开始实时监听。<br />播放翻译语音时会自动暂停收音。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-card" id="summaryCard" hidden aria-labelledby="summaryTitle">
+        <div class="summary-header">
+          <div class="summary-title" id="summaryTitle">本次会话纪要</div>
+          <div class="summary-time" id="summaryTime"></div>
+        </div>
+        <div id="summaryContent"></div>
+        <div class="summary-actions">
+          <button class="summary-action" id="summaryExportButton" type="button">导出纪要</button>
+          <button class="summary-action" id="transcriptExportButton" type="button">导出完整文本</button>
+        </div>
+      </section>
+
+      <section class="control-card" id="controlCard">
+        <button class="listen-button" id="listenButton" data-active="false" aria-label="开始翻译">
+          <span class="pulse-ring" aria-hidden="true"></span>
+          <svg class="hold-progress" id="holdProgress" viewBox="0 0 96 96" aria-hidden="true"><circle class="hold-track" cx="48" cy="48" r="44"></circle><circle class="hold-value" id="holdProgressCircle" cx="48" cy="48" r="44"></circle></svg>
+          <svg id="micIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7"/></svg>
+        </button>
+        <div class="control-label" id="controlLabel">开始监听</div>
+        <div class="control-helper">单击暂停/继续，长按 2 秒结束会话</div>
+      </section>
+      </div>
+
+      <section class="records-page" id="recordsPage" hidden aria-labelledby="recordsTitle">
+        <div class="records-hero">
+          <small>SESSION ARCHIVE</small>
+          <h2 id="recordsTitle">翻译记录</h2>
+          <p>查看每次会话的完整转录与导出文件</p>
+        </div>
+        <div class="records-summary"><strong>历史会话</strong><span id="recordsCount">0 个会话</span></div>
+        <div class="record-list" id="recordsList"></div>
+        <div class="record-empty" id="recordsEmpty">完成一次翻译会话后，记录会显示在这里。</div>
+        <section class="record-detail" id="recordDetail" hidden aria-labelledby="recordDetailTitle">
+          <button class="record-back" id="recordBack" type="button">‹ 返回记录</button>
+          <div class="record-detail-header">
+            <div>
+              <small>SESSION DETAIL</small>
+              <h2 id="recordDetailTitle">会话详情</h2>
+            </div>
+            <span id="recordDetailMeta"></span>
+          </div>
+          <div class="record-detail-actions">
+            <button id="recordSummaryButton" type="button">生成 / 导出纪要</button>
+            <button id="recordTranscriptButton" type="button">导出完整文本</button>
+          </div>
+          <div class="record-summary-view" id="recordSummaryView" hidden></div>
+          <div class="record-transcript" id="recordTranscript"></div>
+        </section>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+    <audio id="remoteAudio" autoplay playsinline aria-hidden="true"></audio>
+
+    <nav class="bottom-nav" aria-label="应用导航">
+      <button class="active" id="navTranslate" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7"/></svg>
+        <span>翻译</span>
+      </button>
+      <button id="navRecords" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6z"/><path d="M9 11h6M9 15h6M9 7h3"/></svg>
+        <span>记录</span>
+      </button>
+    </nav>
+
+    <div class="sheet-backdrop" id="settingsSheet" data-open="false" aria-hidden="true">
+      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="sheet-header">
+          <div class="sheet-title" id="settingsTitle">设置</div>
+          <button class="icon-button" id="closeSettings" aria-label="关闭设置">×</button>
+        </div>
+        <div class="sheet-row sheet-row-column">
+          <div>
+            <div class="sheet-row-label">OpenAI API Key</div>
+            <div class="sheet-row-copy">仅保存在当前页面内存，用于创建短期 Realtime 会话</div>
+          </div>
+          <div class="api-key-wrap">
+            <input class="api-key-input" id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-..." aria-label="OpenAI API Key" />
+            <button class="api-key-save" id="saveApiKey" type="button">保存</button>
+          </div>
+          <div class="api-key-status" id="apiKeyStatus">未配置</div>
+        </div>
+        <div class="sheet-row sheet-row-column">
+          <div>
+            <div class="sheet-row-label">语音边界检测</div>
+            <div class="sheet-row-copy">连续安静多久后判定一句话结束；下次开始监听时生效</div>
+          </div>
+          <div class="range-wrap">
+            <div class="range-line">
+              <input class="range-input" id="silenceDuration" type="range" min="300" max="2000" step="100" value="900" aria-label="语音边界检测时长" />
+              <output class="range-value" id="silenceDurationValue" for="silenceDuration">0.9 秒</output>
+            </div>
+            <div class="range-hint"><span>更快响应</span><span>更完整表达</span></div>
+          </div>
+        </div>
+        <div class="sheet-row sheet-row-column">
+          <div>
+            <div class="sheet-row-label">会话记录与纪要</div>
+            <div class="sheet-row-copy">会话内容会自动保存，请在底部“记录”页面查看与处理</div>
+          </div>
+          <div class="api-key-status" id="summaryStatus">尚未生成纪要</div>
+        </div>
+        <div class="sheet-row">
+          <div>
+            <div class="sheet-row-label">翻译后自动恢复收音</div>
+            <div class="sheet-row-copy">播放结束后立即进入下一轮监听</div>
+          </div>
+          <label class="switch" aria-label="翻译后自动恢复收音">
+            <input id="autoResume" type="checkbox" checked />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+        <div class="sheet-row">
+          <div>
+            <div class="sheet-row-label">记录对话文本</div>
+            <div class="sheet-row-copy">仅用于验证翻译流程，不影响语音播放</div>
+          </div>
+          <label class="switch" aria-label="记录对话文本">
+            <input id="showTranscript" type="checkbox" checked />
+            <span class="switch-track"></span>
+          </label>
+        </div>
+        <button class="sheet-button" id="clearConversation">清空本次记录</button>
+      </section>
+    </div>
+
+    <script>
+      (() => {
+        const sourceSelect = document.querySelector('#sourceLanguage');
+        const targetSelect = document.querySelector('#targetLanguage');
+        const swapButton = document.querySelector('#swapButton');
+        const listenButton = document.querySelector('#listenButton');
+        const micIcon = document.querySelector('#micIcon');
+        const controlLabel = document.querySelector('#controlLabel');
+        const statusPill = document.querySelector('#statusPill');
+        const statusText = document.querySelector('#statusText');
+        const conversation = document.querySelector('#conversation');
+        const emptyState = document.querySelector('#emptyState');
+        const summaryCard = document.querySelector('#summaryCard');
+        const summaryTime = document.querySelector('#summaryTime');
+        const summaryContent = document.querySelector('#summaryContent');
+        const summaryExportButton = document.querySelector('#summaryExportButton');
+        const transcriptExportButton = document.querySelector('#transcriptExportButton');
+        const toast = document.querySelector('#toast');
+        const controlCard = document.querySelector('#controlCard');
+        const bottomNav = document.querySelector('.bottom-nav');
+        const settingsButton = document.querySelector('#settingsButton');
+        const settingsSheet = document.querySelector('#settingsSheet');
+        const closeSettings = document.querySelector('#closeSettings');
+        const clearConversation = document.querySelector('#clearConversation');
+        const autoResume = document.querySelector('#autoResume');
+        const showTranscript = document.querySelector('#showTranscript');
+        const apiKeyInput = document.querySelector('#apiKey');
+        const saveApiKey = document.querySelector('#saveApiKey');
+        const apiKeyStatus = document.querySelector('#apiKeyStatus');
+        const silenceDurationInput = document.querySelector('#silenceDuration');
+        const silenceDurationValue = document.querySelector('#silenceDurationValue');
+        const summaryStatus = document.querySelector('#summaryStatus');
+        const remoteAudio = document.querySelector('#remoteAudio');
+        const translatePage = document.querySelector('#translatePage');
+        const recordsPage = document.querySelector('#recordsPage');
+        const recordsList = document.querySelector('#recordsList');
+        const recordsEmpty = document.querySelector('#recordsEmpty');
+        const recordsCount = document.querySelector('#recordsCount');
+        const recordsSummary = document.querySelector('.records-summary');
+        const recordDetail = document.querySelector('#recordDetail');
+        const recordBack = document.querySelector('#recordBack');
+        const recordDetailTitle = document.querySelector('#recordDetailTitle');
+        const recordDetailMeta = document.querySelector('#recordDetailMeta');
+        const recordSummaryButton = document.querySelector('#recordSummaryButton');
+        const recordTranscriptButton = document.querySelector('#recordTranscriptButton');
+        const recordSummaryView = document.querySelector('#recordSummaryView');
+        const recordTranscript = document.querySelector('#recordTranscript');
+        const navTranslate = document.querySelector('#navTranslate');
+        const navRecords = document.querySelector('#navRecords');
+        const holdProgress = document.querySelector('#holdProgress');
+        const holdProgressCircle = document.querySelector('#holdProgressCircle');
+
+        const iconMic = '<path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8.5 21h7"/>';
+        const iconStop = '<rect x="7" y="7" width="10" height="10" rx="2"/>';
+
+        let state = 'idle';
+        let mediaStream = null;
+        let peerConnection = null;
+        let micSender = null;
+        let dataChannel = null;
+        let audioContext = null;
+        let analyser = null;
+        let remoteSource = null;
+        let remoteMediaStream = null;
+        let nativeAudioPlaying = false;
+        let analyserOutputConnected = false;
+        let analyserBuffer = null;
+        let playbackMonitorId = null;
+        let toastTimer = null;
+        let apiKeyMemory = '';
+        let outputStarted = false;
+        let outputFinished = false;
+        let finishFallbackTimer = null;
+        let currentTurn = null;
+        let sessionTurns = [];
+        let latestSummary = null;
+        const historyStorageKey = 'duo-translate-session-history-v1';
+        let savedSessions = loadSavedSessions();
+        let currentSession = null;
+        let currentRecordId = null;
+        let manualPaused = false;
+        let pressTimer = null;
+        let longPressTriggered = false;
+        let holdProgressId = null;
+        let holdStartedAt = 0;
+        let micDocked = false;
+        let dockCheckId = null;
+        const longPressDuration = 2000;
+        const holdCircumference = 276.46;
+
+        function languageName(select) { return select.options[select.selectedIndex].dataset.name; }
+
+        function formatSilenceDuration() {
+          const seconds = Number(silenceDurationInput.value) / 1000;
+          silenceDurationValue.textContent = `${seconds.toFixed(1)} 秒`;
+        }
+
+        function setState(next, label) {
+          state = next;
+          statusPill.dataset.state = next;
+          statusText.textContent = label;
+          listenButton.dataset.active = ['listening', 'playing', 'paused'].includes(next);
+          listenButton.dataset.paused = next === 'paused';
+          listenButton.dataset.busy = next === 'processing' || next === 'playing';
+          controlLabel.textContent = next === 'idle' ? '开始监听' : next === 'paused' ? '继续翻译' : next === 'listening' ? '暂停翻译' : next === 'playing' ? '播放翻译中' : '连接中';
+          listenButton.setAttribute('aria-label', controlLabel.textContent);
+          micIcon.innerHTML = next === 'idle' ? iconMic : iconStop;
+          const active = next !== 'idle';
+          sourceSelect.disabled = active;
+          targetSelect.disabled = active;
+          swapButton.disabled = active;
+        }
+
+        function showToast(message) {
+          toast.textContent = message;
+          toast.dataset.visible = 'true';
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => { toast.dataset.visible = 'false'; }, 3200);
+        }
+
+        function checkMicDocking() {
+          dockCheckId = null;
+          if (micDocked || translatePage.hidden || !controlCard || !bottomNav) return;
+          const cardRect = controlCard.getBoundingClientRect();
+          const navRect = bottomNav.getBoundingClientRect();
+          const hitsBottomNav = cardRect.bottom > navRect.top - 8 && cardRect.top < navRect.bottom;
+          if (hitsBottomNav) {
+            micDocked = true;
+            controlCard.dataset.docked = 'true';
+          }
+        }
+
+        function scheduleMicDockingCheck() {
+          if (dockCheckId) return;
+          dockCheckId = requestAnimationFrame(checkMicDocking);
+        }
+
+        window.addEventListener('scroll', scheduleMicDockingCheck, { passive: true });
+        window.addEventListener('resize', scheduleMicDockingCheck);
+
+        function ensureMicStream() {
+          if (mediaStream) return Promise.resolve(mediaStream);
+          if (!navigator.mediaDevices?.getUserMedia) throw new Error('当前浏览器不支持麦克风访问');
+          return navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          }).then((stream) => { mediaStream = stream; return stream; });
+        }
+
+        function setMicEnabled(enabled) {
+          const track = mediaStream?.getAudioTracks()[0];
+          if (track) track.enabled = enabled;
+          if (micSender) {
+            const nextTrack = enabled ? track : null;
+            if (micSender.track !== nextTrack) micSender.replaceTrack(nextTrack).catch(() => {});
+          }
+        }
+
+        function ensureCurrentTurn() {
+          if (!currentTurn) {
+            currentTurn = {
+              article: null,
+              source: '',
+              target: '',
+              startedAt: new Date().toISOString(),
+              sourceLanguage: languageName(sourceSelect),
+              targetLanguage: languageName(targetSelect)
+            };
+            latestSummary = null;
+            if (currentSession) currentSession.summary = null;
+            summaryCard.hidden = true;
+            summaryStatus.textContent = '有新的对话，纪要需要重新生成';
+          }
+          if (showTranscript.checked && !currentTurn.article) {
+            const article = document.createElement('article');
+            article.className = 'turn';
+            article.dataset.pending = 'true';
+            article.innerHTML = '<div class="turn-meta"><span class="turn-language"></span><span class="turn-time"></span></div><div class="turn-source"></div><div class="turn-target"></div>';
+            article.querySelector('.turn-language').textContent = `${currentTurn.sourceLanguage} → ${currentTurn.targetLanguage}`;
+            article.querySelector('.turn-time').textContent = new Date(currentTurn.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            conversation.appendChild(article);
+            currentTurn.article = article;
+            emptyState.hidden = true;
+          }
+          return currentTurn;
+        }
+
+        function addOrUpdateTurn(kind, text) {
+          if (!text) return;
+          const turn = ensureCurrentTurn();
+          turn[kind] = text;
+          if (!turn.article) return;
+          turn.article.querySelector(kind === 'source' ? '.turn-source' : '.turn-target').textContent = text;
+          conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        function appendTurnText(kind, delta) {
+          if (!delta) return;
+          const existing = currentTurn?.[kind] || '';
+          addOrUpdateTurn(kind, existing + delta);
+        }
+
+        function commitTurn() {
+          if (!currentTurn) return;
+          if (currentTurn.source || currentTurn.target) {
+            sessionTurns.push({
+              source: currentTurn.source,
+              target: currentTurn.target,
+              startedAt: currentTurn.startedAt,
+              sourceLanguage: currentTurn.sourceLanguage,
+              targetLanguage: currentTurn.targetLanguage
+            });
+          }
+          currentTurn.article?.setAttribute('data-pending', 'false');
+          currentTurn = null;
+          syncCurrentSessionDraft();
+        }
+
+        function getRecordedTurns() {
+          const turns = [...sessionTurns];
+          if (currentTurn && (currentTurn.source || currentTurn.target)) {
+            turns.push({
+              source: currentTurn.source,
+              target: currentTurn.target,
+              startedAt: currentTurn.startedAt,
+              sourceLanguage: currentTurn.sourceLanguage,
+              targetLanguage: currentTurn.targetLanguage
+            });
+          }
+          return turns;
+        }
+
+        function formatTranscript(turns, title = 'Duo Translate 完整对话文本') {
+          const lines = [
+            title,
+            `导出时间：${new Date().toLocaleString()}`,
+            `对话轮数：${turns.length}`,
+            ''
+          ];
+          turns.forEach((turn, index) => {
+            const time = turn.startedAt ? new Date(turn.startedAt).toLocaleTimeString() : '';
+            lines.push(`第 ${index + 1} 轮 · ${time} · ${turn.sourceLanguage} → ${turn.targetLanguage}`);
+            if (turn.source) lines.push(`原文：${turn.source}`);
+            if (turn.target) lines.push(`译文：${turn.target}`);
+            lines.push('');
+          });
+          return lines.join('\n');
+        }
+
+        function formatFullTranscript() {
+          return formatTranscript(getRecordedTurns());
+        }
+
+        function loadSavedSessions() {
+          try {
+            const raw = window.localStorage.getItem(historyStorageKey);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed.filter((session) => session && Array.isArray(session.turns)) : [];
+          } catch {
+            return [];
+          }
+        }
+
+        function persistSavedSessions() {
+          try {
+            window.localStorage.setItem(historyStorageKey, JSON.stringify(savedSessions.slice(0, 50)));
+          } catch {
+            showToast('记录已保存在当前页面，但浏览器存储空间不足');
+          }
+        }
+
+        function syncCurrentSessionDraft() {
+          if (!currentSession) return;
+          currentSession.turns = getRecordedTurns();
+          currentSession.summary = latestSummary;
+        }
+
+        function beginSession() {
+          conversation.querySelectorAll('.turn').forEach((turn) => turn.remove());
+          emptyState.hidden = false;
+          sessionTurns = [];
+          currentTurn = null;
+          latestSummary = null;
+          summaryCard.hidden = true;
+          summaryStatus.textContent = '尚未生成纪要';
+          currentRecordId = null;
+          currentSession = {
+            id: `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            startedAt: new Date().toISOString(),
+            endedAt: null,
+            turns: [],
+            summary: null
+          };
+        }
+
+        function finalizeCurrentSession() {
+          commitTurn();
+          if (!currentSession) return;
+          const turns = getRecordedTurns();
+          if (turns.length) {
+            currentSession.turns = turns;
+            currentSession.summary = latestSummary;
+            currentSession.endedAt = new Date().toISOString();
+            savedSessions = [currentSession, ...savedSessions.filter((session) => session.id !== currentSession.id)].slice(0, 50);
+            persistSavedSessions();
+          }
+          currentRecordId = currentSession.id;
+          currentSession = null;
+        }
+
+        function formatSessionDate(session) {
+          const date = new Date(session.startedAt || session.endedAt || Date.now());
+          return date.toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function findSavedSession(id) {
+          return savedSessions.find((session) => session.id === id) || null;
+        }
+
+        function downloadText(filename, content) {
+          const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function summaryAsText(summary) {
+          const lines = [
+            'Duo Translate 会话纪要',
+            `生成时间：${new Date().toLocaleString()}`,
+            '',
+            `主题：${summary.title || '未命名会话'}`,
+            '',
+            '概览',
+            summary.overview || '暂无概览',
+            ''
+          ];
+          const sections = [
+            ['关键要点', summary.key_points],
+            ['决定事项', summary.decisions],
+            ['待跟进事项', summary.action_items]
+          ];
+          sections.forEach(([label, items]) => {
+            if (!Array.isArray(items) || !items.length) return;
+            lines.push(label);
+            items.forEach((item) => lines.push(`- ${item}`));
+            lines.push('');
+          });
+          return lines.join('\n');
+        }
+
+        function renderSummaryContent(target, summary) {
+          target.replaceChildren();
+          const sections = [
+            ['主题', summary.title ? [summary.title] : [], false],
+            ['概览', summary.overview ? [summary.overview] : [], false],
+            ['关键要点', summary.key_points, true],
+            ['决定事项', summary.decisions, true],
+            ['待跟进事项', summary.action_items, true]
+          ];
+          sections.forEach(([label, values, list]) => {
+            if (!Array.isArray(values) || !values.length) return;
+            const section = document.createElement('div');
+            section.className = 'summary-section';
+            const heading = document.createElement('div');
+            heading.className = 'summary-label';
+            heading.textContent = label;
+            section.appendChild(heading);
+            if (list) {
+              const ul = document.createElement('ul');
+              ul.className = 'summary-list';
+              values.forEach((value) => {
+                const li = document.createElement('li');
+                li.textContent = value;
+                ul.appendChild(li);
+              });
+              section.appendChild(ul);
+            } else {
+              const text = document.createElement('div');
+              text.className = 'summary-text';
+              text.textContent = values[0];
+              section.appendChild(text);
+            }
+            target.appendChild(section);
+          });
+        }
+
+        function renderSummary(summary) {
+          renderSummaryContent(summaryContent, summary);
+          summaryTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          summaryCard.hidden = false;
+        }
+
+        async function requestSummary(turns) {
+          const firstTurn = turns[0] || {};
+          const apiKey = apiKeyMemory || apiKeyInput.value.trim();
+          const response = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              apiKey,
+              transcript: formatTranscript(turns, 'Duo Translate 会话完整文本'),
+              sourceLanguage: firstTurn.sourceLanguage || languageName(sourceSelect),
+              targetLanguage: firstTurn.targetLanguage || languageName(targetSelect)
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || '纪要生成失败');
+          return data.summary;
+        }
+
+        function renderRecordDetail(session) {
+          if (!session) return;
+          const turns = Array.isArray(session.turns) ? session.turns : [];
+          recordDetailTitle.textContent = `会话 · ${formatSessionDate(session)}`;
+          recordDetailMeta.textContent = `${turns.length} 轮对话`;
+          recordSummaryButton.textContent = session.summary ? '导出纪要' : '生成纪要';
+          recordSummaryView.hidden = !session.summary;
+          if (session.summary) renderSummaryContent(recordSummaryView, session.summary);
+          recordTranscript.replaceChildren();
+          turns.forEach((turn, index) => {
+            const article = document.createElement('article');
+            article.className = 'record-transcript-turn';
+            const meta = document.createElement('small');
+            const time = turn.startedAt ? new Date(turn.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            meta.textContent = `${String(index + 1).padStart(2, '0')} · ${time} · ${turn.sourceLanguage || ''} → ${turn.targetLanguage || ''}`;
+            article.appendChild(meta);
+            const source = document.createElement('p');
+            source.textContent = turn.source || '（未识别到原文）';
+            const target = document.createElement('p');
+            target.textContent = turn.target || '（未生成译文）';
+            article.append(source, target);
+            recordTranscript.appendChild(article);
+          });
+        }
+
+        function renderRecordsPage() {
+          recordsCount.textContent = `${savedSessions.length} 个会话`;
+          recordsList.replaceChildren();
+          recordsEmpty.hidden = savedSessions.length > 0;
+          recordsList.hidden = savedSessions.length === 0;
+          recordDetail.hidden = true;
+          recordsSummary.hidden = false;
+          savedSessions.forEach((session) => {
+            const card = document.createElement('article');
+            card.className = 'record-card';
+            const main = document.createElement('button');
+            main.className = 'record-card-main';
+            main.type = 'button';
+            const copy = document.createElement('span');
+            const title = document.createElement('strong');
+            title.textContent = `翻译会话 · ${formatSessionDate(session)}`;
+            const meta = document.createElement('small');
+            const firstTurn = session.turns[0] || {};
+            meta.textContent = `${session.turns.length} 轮对话 · ${firstTurn.sourceLanguage || '双语'} → ${firstTurn.targetLanguage || '翻译'}`;
+            copy.append(title, meta);
+            const arrow = document.createElement('span');
+            arrow.className = 'record-card-arrow';
+            arrow.textContent = '›';
+            main.append(copy, arrow);
+            main.addEventListener('click', () => openRecordDetail(session.id));
+            const actions = document.createElement('div');
+            actions.className = 'record-card-actions';
+            const summaryButton = document.createElement('button');
+            summaryButton.type = 'button';
+            summaryButton.textContent = session.summary ? '导出纪要' : '生成纪要';
+            summaryButton.addEventListener('click', () => {
+              if (session.summary) exportSavedSummary(session);
+              else generateSavedSessionSummary(session);
+            });
+            const transcriptButton = document.createElement('button');
+            transcriptButton.type = 'button';
+            transcriptButton.textContent = '导出完整文本';
+            transcriptButton.addEventListener('click', () => exportSavedTranscript(session));
+            actions.append(summaryButton, transcriptButton);
+            card.append(main, actions);
+            recordsList.appendChild(card);
+          });
+        }
+
+        function openRecordDetail(id) {
+          const session = findSavedSession(id);
+          if (!session) return;
+          currentRecordId = id;
+          recordsList.hidden = true;
+          recordsEmpty.hidden = true;
+          recordsSummary.hidden = true;
+          recordDetail.hidden = false;
+          renderRecordDetail(session);
+          recordsPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function closeRecordDetail() {
+          currentRecordId = null;
+          renderRecordsPage();
+        }
+
+        function exportSavedTranscript(session) {
+          downloadText(`duo-translate-transcript-${session.id}.txt`, formatTranscript(session.turns));
+          showToast('完整对话文本已导出');
+        }
+
+        function exportSavedSummary(session) {
+          if (!session.summary) {
+            showToast('请先生成本次会话纪要');
+            return;
+          }
+          downloadText(`duo-translate-summary-${session.id}.txt`, summaryAsText(session.summary));
+          showToast('会话纪要已导出');
+        }
+
+        async function generateSavedSessionSummary(session) {
+          const turns = Array.isArray(session.turns) ? session.turns : [];
+          if (!turns.length) {
+            showToast('这条记录没有可生成纪要的文本');
+            return;
+          }
+          recordSummaryButton.disabled = true;
+          recordSummaryButton.textContent = '正在生成…';
+          try {
+            session.summary = await requestSummary(turns);
+            savedSessions = [session, ...savedSessions.filter((item) => item.id !== session.id)];
+            persistSavedSessions();
+            renderRecordDetail(session);
+            renderRecordsPage();
+            openRecordDetail(session.id);
+            showToast('会话纪要已生成');
+          } catch (error) {
+            recordSummaryButton.textContent = '生成纪要';
+            showToast(error.message || '纪要生成失败');
+          } finally {
+            recordSummaryButton.disabled = false;
+          }
+        }
+
+        function setView(view) {
+          const showRecords = view === 'records';
+          translatePage.hidden = showRecords;
+          recordsPage.hidden = !showRecords;
+          navTranslate.classList.toggle('active', !showRecords);
+          navRecords.classList.toggle('active', showRecords);
+          if (showRecords) renderRecordsPage();
+          else {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            scheduleMicDockingCheck();
+          }
+        }
+
+        function beginOutput() {
+          outputStarted = true;
+          outputFinished = false;
+          setMicEnabled(false);
+          setState('playing', `正在播放${languageName(targetSelect)}译音`);
+        }
+
+        function finishOutput() {
+          if (!outputStarted || outputFinished) return;
+          clearTimeout(finishFallbackTimer);
+          outputFinished = true;
+          commitTurn();
+          waitForPlaybackDrain();
+        }
+
+        function waitForPlaybackDrain() {
+          cancelAnimationFrame(playbackMonitorId);
+          const resume = () => {
+            outputStarted = false;
+            outputFinished = false;
+            if (manualPaused) {
+              setMicEnabled(false);
+              setState('paused', '已暂停');
+              return;
+            }
+            if (!autoResume.checked) {
+              setMicEnabled(false);
+              setState('idle', '已暂停');
+              return;
+            }
+            setMicEnabled(true);
+            setState('listening', '正在聆听');
+            showToast('译音播放结束，已恢复收音');
+          };
+          if (!analyser || !analyserBuffer) {
+            window.setTimeout(resume, 1200);
+            return;
+          }
+          const startedAt = performance.now();
+          const minimumWait = nativeAudioPlaying ? 1200 : 800;
+          let quietSince = 0;
+          const check = () => {
+            analyser.getByteTimeDomainData(analyserBuffer);
+            let sum = 0;
+            for (const value of analyserBuffer) { const normalized = (value - 128) / 128; sum += normalized * normalized; }
+            const rms = Math.sqrt(sum / analyserBuffer.length);
+            const now = performance.now();
+            if (rms < 0.024) quietSince ||= now;
+            else quietSince = 0;
+            if ((quietSince && now - quietSince > 170 && now - startedAt > minimumWait) || now - startedAt > 5000) {
+              resume();
+              return;
+            }
+            playbackMonitorId = requestAnimationFrame(check);
+          };
+          playbackMonitorId = requestAnimationFrame(check);
+        }
+
+        async function preparePlayback(stream) {
+          remoteAudio.srcObject = stream;
+          remoteAudio.autoplay = true;
+          remoteAudio.playsInline = true;
+          try {
+            await remoteAudio.play();
+            nativeAudioPlaying = true;
+          } catch {
+            nativeAudioPlaying = false;
+          }
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextClass) throw new Error('当前浏览器不支持音频播放');
+          audioContext ||= new AudioContextClass();
+          try { if (audioContext.state !== 'running') await audioContext.resume(); } catch { /* autoplay policy may require the next user gesture */ }
+          remoteSource?.disconnect();
+          analyser ||= audioContext.createAnalyser();
+          analyser.fftSize = 512;
+          analyserBuffer = new Uint8Array(analyser.fftSize);
+          remoteSource = audioContext.createMediaStreamSource(stream);
+          remoteSource.connect(analyser);
+          if (!nativeAudioPlaying && !analyserOutputConnected) {
+            analyser.connect(audioContext.destination);
+            analyserOutputConnected = true;
+          }
+        }
+
+        async function getClientSecret() {
+          const response = await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              apiKey: apiKeyMemory || apiKeyInput.value.trim(),
+              sourceLanguage: sourceSelect.value,
+              targetLanguage: targetSelect.value,
+              silenceDurationMs: Number(silenceDurationInput.value)
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || '无法创建 Realtime 会话');
+          if (!data.value) throw new Error('服务端没有返回短期会话密钥');
+          return data.value;
+        }
+
+        async function connectRealtime() {
+          const ephemeralKey = await getClientSecret();
+          const pc = new RTCPeerConnection();
+          peerConnection = pc;
+          pc.onconnectionstatechange = () => {
+            if (['failed', 'disconnected'].includes(pc.connectionState) && state !== 'idle') {
+              showToast('Realtime 连接已断开');
+              stopListening(false);
+            }
+          };
+          pc.ontrack = async (event) => {
+            const stream = event.streams[0] || remoteMediaStream || new MediaStream();
+            if (!stream.getTracks().includes(event.track)) stream.addTrack(event.track);
+            remoteMediaStream = stream;
+            await preparePlayback(stream);
+          };
+          dataChannel = pc.createDataChannel('oai-events');
+          dataChannel.onmessage = ({ data }) => {
+            try { handleRealtimeEvent(JSON.parse(data)); } catch { /* ignore malformed event */ }
+          };
+          if (!mediaStream) throw new Error('麦克风尚未准备好');
+          micSender = pc.addTrack(mediaStream.getAudioTracks()[0], mediaStream);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          const answer = await fetch('https://api.openai.com/v1/realtime/calls', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${ephemeralKey}`, 'Content-Type': 'application/sdp' },
+            body: offer.sdp
+          });
+          if (!answer.ok) throw new Error(await answer.text());
+          await pc.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
+        }
+
+        function handleRealtimeEvent(event) {
+          if (event.type === 'error') {
+            showToast(event.error?.message || 'Realtime 返回错误');
+            return;
+          }
+          if (event.type === 'response.created') beginOutput();
+          if (event.type === 'response.output_audio.delta') beginOutput();
+          if (event.type === 'conversation.item.input_audio_transcription.delta') appendTurnText('source', event.delta);
+          if (event.type === 'conversation.item.input_audio_transcription.completed') addOrUpdateTurn('source', event.transcript || '');
+          if (event.type === 'response.output_audio_transcript.delta') appendTurnText('target', event.delta);
+          if (event.type === 'response.output_audio_transcript.done') addOrUpdateTurn('target', event.transcript || '');
+          if (event.type === 'response.output_audio.done') {
+            clearTimeout(finishFallbackTimer);
+            finishFallbackTimer = window.setTimeout(finishOutput, 250);
+          }
+          if (event.type === 'response.done') finishOutput();
+        }
+
+        function pauseTranslation() {
+          manualPaused = true;
+          setMicEnabled(false);
+          setState('paused', '已暂停');
+          showToast('已暂停翻译，单击继续，长按结束会话');
+        }
+
+        function resumeTranslation() {
+          manualPaused = false;
+          setMicEnabled(true);
+          setState('listening', '正在聆听');
+          showToast('已继续翻译');
+        }
+
+        function endSession() {
+          if (state === 'idle') return;
+          manualPaused = false;
+          stopListening(false);
+          showToast('会话已结束，记录仍可生成纪要或导出');
+        }
+
+        async function startListening() {
+          try {
+            manualPaused = false;
+            setState('processing', '正在连接 Realtime');
+            // Unlock the browser's audio output while this call is still inside the tap/click gesture.
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (AudioContextClass) {
+              audioContext ||= new AudioContextClass();
+              try { await audioContext.resume(); } catch { /* the remote track will retry */ }
+            }
+            await ensureMicStream();
+            await connectRealtime();
+            beginSession();
+            setMicEnabled(true);
+            setState('listening', '正在聆听');
+            showToast('Realtime 已连接');
+          } catch (error) {
+            stopListening(false);
+            showToast(error.message || '无法启动实时翻译');
+          }
+        }
+
+        function stopListening(showMessage = true) {
+          cancelAnimationFrame(playbackMonitorId);
+          clearHoldProgress();
+          manualPaused = false;
+          setMicEnabled(false);
+          dataChannel?.close();
+          peerConnection?.close();
+          mediaStream?.getTracks().forEach((track) => track.stop());
+          dataChannel = null;
+          peerConnection = null;
+          micSender = null;
+          mediaStream = null;
+          remoteSource?.disconnect();
+          remoteSource = null;
+          remoteMediaStream = null;
+          remoteAudio.pause();
+          remoteAudio.srcObject = null;
+          nativeAudioPlaying = false;
+          clearTimeout(finishFallbackTimer);
+          outputStarted = false;
+          outputFinished = false;
+          finalizeCurrentSession();
+          setState('idle', '准备开始');
+          if (showMessage) showToast('已暂停翻译');
+        }
+
+        function clearPressTimer() {
+          if (pressTimer) window.clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+
+        function clearHoldProgress() {
+          if (holdProgressId) cancelAnimationFrame(holdProgressId);
+          holdProgressId = null;
+          holdStartedAt = 0;
+          holdProgress.dataset.visible = 'false';
+          holdProgressCircle.style.strokeDashoffset = holdCircumference;
+        }
+
+        function startHoldProgress() {
+          holdStartedAt = performance.now();
+          holdProgress.dataset.visible = 'true';
+          const update = () => {
+            const progress = Math.min(1, (performance.now() - holdStartedAt) / longPressDuration);
+            holdProgressCircle.style.strokeDashoffset = holdCircumference * (1 - progress);
+            if (progress < 1 && pressTimer) holdProgressId = requestAnimationFrame(update);
+          };
+          holdProgressId = requestAnimationFrame(update);
+        }
+
+        listenButton.addEventListener('pointerdown', (event) => {
+          if (event.button !== undefined && event.button !== 0) return;
+          longPressTriggered = false;
+          clearPressTimer();
+          try { listenButton.setPointerCapture(event.pointerId); } catch { /* pointer capture is optional */ }
+          if (state !== 'idle') {
+            startHoldProgress();
+            pressTimer = window.setTimeout(() => {
+              longPressTriggered = true;
+              endSession();
+            }, longPressDuration);
+          }
+        });
+
+        listenButton.addEventListener('pointerup', () => {
+          clearPressTimer();
+          clearHoldProgress();
+          if (longPressTriggered) {
+            longPressTriggered = false;
+            return;
+          }
+          if (state === 'idle') startListening();
+          else if (state === 'paused') resumeTranslation();
+          else if (['listening', 'playing'].includes(state)) pauseTranslation();
+        });
+
+        listenButton.addEventListener('pointercancel', () => {
+          clearPressTimer();
+          clearHoldProgress();
+        });
+        listenButton.addEventListener('contextmenu', (event) => event.preventDefault());
+
+        swapButton.addEventListener('click', () => {
+          const source = sourceSelect.value;
+          sourceSelect.value = targetSelect.value;
+          targetSelect.value = source;
+          showToast(`${languageName(sourceSelect)} ⇄ ${languageName(targetSelect)}`);
+        });
+
+        function openSettings() {
+          settingsSheet.dataset.open = 'true';
+          settingsSheet.setAttribute('aria-hidden', 'false');
+          apiKeyInput.focus();
+        }
+        function closeSettingsPanel() {
+          settingsSheet.dataset.open = 'false';
+          settingsSheet.setAttribute('aria-hidden', 'true');
+        }
+        settingsButton.addEventListener('click', openSettings);
+        closeSettings.addEventListener('click', closeSettingsPanel);
+        settingsSheet.addEventListener('click', (event) => { if (event.target === settingsSheet) closeSettingsPanel(); });
+
+        navTranslate.addEventListener('click', () => {
+          setView('translate');
+        });
+        navRecords.addEventListener('click', () => {
+          setView('records');
+        });
+        recordBack.addEventListener('click', closeRecordDetail);
+        recordSummaryButton.addEventListener('click', () => {
+          const session = findSavedSession(currentRecordId);
+          if (!session) return;
+          if (session.summary) exportSavedSummary(session);
+          else generateSavedSessionSummary(session);
+        });
+        recordTranscriptButton.addEventListener('click', () => {
+          const session = findSavedSession(currentRecordId);
+          if (session) exportSavedTranscript(session);
+        });
+
+        saveApiKey.addEventListener('click', () => {
+          apiKeyMemory = apiKeyInput.value.trim();
+          apiKeyStatus.textContent = apiKeyMemory ? '已配置，仅当前页面有效' : '未配置';
+          showToast(apiKeyMemory ? 'API Key 已保存到当前会话' : '已清除 API Key');
+        });
+
+        silenceDurationInput.addEventListener('input', formatSilenceDuration);
+        formatSilenceDuration();
+
+        function exportTranscript() {
+          if (!getRecordedTurns().length) {
+            showToast('还没有可导出的对话文本');
+            return;
+          }
+          downloadText(`duo-translate-transcript-${new Date().toISOString().slice(0, 10)}.txt`, formatFullTranscript());
+          showToast('完整对话文本已导出');
+        }
+
+        function exportSummary() {
+          if (!latestSummary) {
+            showToast('请先生成本次会话纪要');
+            return;
+          }
+          downloadText(`duo-translate-summary-${new Date().toISOString().slice(0, 10)}.txt`, summaryAsText(latestSummary));
+          showToast('会话纪要已导出');
+        }
+
+        transcriptExportButton.addEventListener('click', exportTranscript);
+        summaryExportButton.addEventListener('click', exportSummary);
+
+        clearConversation.addEventListener('click', () => {
+          conversation.querySelectorAll('.turn').forEach((turn) => turn.remove());
+          emptyState.hidden = false;
+          sessionTurns = [];
+          currentTurn = null;
+          latestSummary = null;
+          summaryCard.hidden = true;
+          summaryStatus.textContent = '尚未生成纪要';
+          closeSettingsPanel();
+          showToast('本次记录已清空');
+        });
+
+        showTranscript.addEventListener('change', () => {
+          conversation.querySelectorAll('.turn').forEach((turn) => { turn.hidden = !showTranscript.checked; });
+        });
+
+        setState('idle', '准备开始');
+        scheduleMicDockingCheck();
+      })();
+    </script>
+  </body>
+</html>

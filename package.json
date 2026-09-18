@@ -1,0 +1,9 @@
+{
+  "name": "duo-translate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-worker.mjs",
+    "dev": "node scripts/dev-server.mjs"
+  }
+}
